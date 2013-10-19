@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <mruby/class.h>
 void
-mrb_mruby_gir_gem_init(mrb_state* mrb) {
+mrb_mruby_gobject_introspection_gem_init(mrb_state* mrb) {
   int ai = mrb_gc_arena_save(mrb);
   mrb_gc_arena_restore(mrb,ai); 
 }
 void
-mrb_mruby_gir_gem_final(mrb_state* mrb) {
+mrb_mruby_gobject_introspection_gem_final(mrb_state* mrb) {
   // finalize
 }
