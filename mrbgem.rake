@@ -1,4 +1,4 @@
-  MRuby::Gem::Specification.new('mruby-gir') do |spec|
+  MRuby::Gem::Specification.new('mruby-gobject-introspection') do |spec|
     spec.license = 'MIT'
     spec.authors = ['ppibburr']
     spec.version = "0.0.1"
