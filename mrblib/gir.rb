@@ -1353,6 +1353,8 @@ end
 module GObjectIntrospection
   self::Lib.attach_function :g_function_info_invoke,[:pointer,:pointer,:int,:pointer,:int,:pointer,:pointer],:bool
   
+
+  
   class ITypeInfo
     TYPE_MAP = {
     :gboolean=>:bool,
@@ -1399,6 +1401,40 @@ module GObjectIntrospection
   class ICallableInfo
     def get_ffi_type
       return_type.get_ffi_type()
+    end
+  end
+  
+  class IPropertyInfo
+    def object?
+      if property_type.tag == :interface
+        if property_type.flattened_tag == :object
+          true
+        end
+      end    
+    end
+    
+    def get_object()
+      raise "" unless object?
+      return property_type.interface    
+    end
+  
+    def get_type_name
+      if (ft=property_type.get_ffi_type) == :string
+        return "gchararray"
+      end
+      
+      if object?()
+        info = get_object()
+        
+        ns = info.namespace
+        n = info.name
+        
+        return "#{ns}#{n}"
+      end
+      
+      if q=ITypeInfo::TYPE_MAP.find do |k,v| v == ft end
+        return q[0].to_s
+      end
     end
   end
 end
