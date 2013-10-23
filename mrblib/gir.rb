@@ -1,5 +1,11 @@
 if !FFI::Pointer.instance_methods.index(:address)
   module FFI
+    module Library
+      def find_enum key
+        FFI::Library.enums[key]
+      end
+    end
+  
     class Pointer
       NULL = self.new
       
@@ -33,8 +39,24 @@ else
       mod
     end
   end
+  class NilClass
+    def to_ptr
+      self
+    end
+  end
+
 
   module FFI
+    class Closure < FFI::Function
+      def initialize args, rt, &b
+        args = args.map do |a|
+          next :pointer if a.superclass == FFI::Struct
+          next a
+        end
+        super rt,args,&b
+      end
+    end
+  
     class Pointer
       def is_null?
         address == FFI::Pointer::NULL.address
