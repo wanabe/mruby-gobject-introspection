@@ -12,6 +12,10 @@ if !FFI::Pointer.instance_methods.index(:address)
       def address
         CFunc::UInt64.refer(addr).value
       end
+      
+      def to_out bool
+        addr
+      end
     end
   end
   
@@ -60,6 +64,16 @@ else
     class Pointer
       def is_null?
         address == FFI::Pointer::NULL.address
+      end
+      
+      def to_out bool
+        if bool
+          return self
+        else
+          ptr = FFI::MemoryPointer.new(:pointer)
+          ptr.write_pointer self
+          return ptr
+        end
       end
     end
   end
@@ -330,27 +344,7 @@ module GObjectIntrospection
   class GIArgument < FFI::Union
     signed_size_t = "int#{FFI.type_size(:size_t) * 8}".to_sym
 
-    layout :v_boolean, :int,
-      :v_int8, :int8,
-      :v_uint8, :uint8,
-      :v_int16, :int16,
-      :v_uint16, :uint16,
-      :v_int32, :int32,
-      :v_uint32, :uint32,
-      :v_int64, :int64,
-      :v_uint64, :uint64,
-      :v_float, :float,
-      :v_double, :double,
-      :v_short, :short,
-      :v_ushort, :ushort,
-      :v_int, :int,
-      :v_uint, :uint,
-      :v_long, :long,
-      :v_ulong, :ulong,
-      :v_ssize, signed_size_t,
-      :v_size, :size_t,
-      :v_string, :string,
-      :v_pointer, :pointer
+    layout :value, :pointer
   end
 
   # IConstInfo
@@ -814,19 +808,21 @@ module GObjectIntrospection
     }
 
     def value_union
-      val = Lib::GIArgument.new
-      GObjectIntrospection::Lib.g_constant_info_get_value @gobj, val
+      val = GIArgument.new
+      
+      GObjectIntrospection::Lib.g_constant_info_get_value @gobj, val.pointer
       return val
     end
 
     def value
-      tag = constant_type.tag
-      val = value_union[TYPE_TAG_TO_UNION_MEMBER[tag]]
-      if RUBY_VERSION >= "1.9" and tag == :utf8
-        val.force_encoding("utf-8")
-      else
-        val
-      end
+      
+      type = constant_type.get_ffi_type
+      val = value_union[:value]#TYPE_TAG_TO_UNION_MEMBER[tag]]
+      
+      return nil if val.is_null?
+      
+      return FFI::Pointer.refer(val.addr).send("read_#{type}")
+     
     end
 
     def constant_type
