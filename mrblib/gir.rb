@@ -821,7 +821,12 @@ module GObjectIntrospection
       
       return nil if val.is_null?
       
-      return FFI::Pointer.refer(val.addr).send("read_#{type}")
+      # mruby: got a CFunc::Pointer
+      if val and !val.is_a?(FFI::Pointer)
+        val = FFI::Pointer.refer(val.addr)
+      end
+      
+      return val.send("read_#{type}")
      
     end
 
