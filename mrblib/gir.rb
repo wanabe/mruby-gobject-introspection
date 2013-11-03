@@ -54,7 +54,7 @@ else
     class Closure < FFI::Function
       def initialize args, rt, &b
         args = args.map do |a|
-          next :pointer if a.superclass == FFI::Struct
+          next :pointer if a.is_a?(Class) and a.ancestors.index FFI::Struct
           next a
         end
         super rt,args,&b
@@ -341,6 +341,8 @@ module GObjectIntrospection
   self::Lib.attach_function :g_interface_info_get_constant, [:pointer, :int], :pointer
   self::Lib.attach_function :g_interface_info_get_iface_struct, [:pointer], :pointer
 
+  # We only define one named member of :pointer
+  # as mruby FFI::Union simply wraps FFI::Struct
   class GIArgument < FFI::Union
     signed_size_t = "int#{FFI.type_size(:size_t) * 8}".to_sym
 
@@ -824,6 +826,35 @@ module GObjectIntrospection
       # mruby: got a CFunc::Pointer
       if val and !val.is_a?(FFI::Pointer)
         val = FFI::Pointer.refer(val.addr)
+      end
+      
+      
+
+      if [:uint64,:double,:int,:int32,:int64,:uint32].index type
+        if FFI::Pointer.instance_methods.index(:addr)
+          # MRUBY
+        
+          if [:int64, :uint64].index(type)
+            low = FFI::TYPES[type].refer(val).low
+            high = FFI::TYPES[type].refer(val).high
+            return((high << 32) | low)
+          end
+          return FFI::Pointer.refer(val.addr).send("read_#{type}")
+        else
+          # CRUBY
+          
+          if [:int64, :uint64].index(type)
+            return [val.address].pack("q").unpack("q").first
+          end      
+        
+          if [:int,:int32,:uint,:uint32].index type
+            return val.address
+          end
+      
+          q = FFI::MemoryPointer.new(type)
+          q.write_ulong val.address
+          return q.send("read_#{type}")
+        end
       end
       
       return val.send("read_#{type}")
@@ -1390,6 +1421,7 @@ module GObjectIntrospection
     :gulong=>:ulong,
     :gshort=>:short,
     :gushort=>:ushort,
+    :guint64=>:uint64,
     :gchar=>:char,
     :guchar=>:uchar,
     :goffset=>:int64,
