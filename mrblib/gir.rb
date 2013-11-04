@@ -835,28 +835,38 @@ module GObjectIntrospection
           # MRUBY
         
           if [:int64, :uint64].index(type)
+            # 64 bit
+          
             low = FFI::TYPES[type].refer(val).low
             high = FFI::TYPES[type].refer(val).high
             return((high << 32) | low)
           end
+          
+          # <= 32 bit or double
           return FFI::Pointer.refer(val.addr).send("read_#{type}")
         else
           # CRUBY
           
           if [:int64, :uint64].index(type)
+            # 64 bit
             return [val.address].pack("q").unpack("q").first
           end      
         
           if [:int,:int32,:uint,:uint32].index type
+            # <= 32 bit
             return val.address
           end
       
+          # double
+      
           q = FFI::MemoryPointer.new(type)
           q.write_ulong val.address
+          
           return q.send("read_#{type}")
         end
       end
       
+      # string
       return val.send("read_#{type}")
      
     end
