@@ -1,4 +1,5 @@
 if !FFI::Pointer.instance_methods.index(:address)
+  MRUBY = true
   module FFI
     module Library
       def find_enum key
@@ -25,6 +26,7 @@ if !FFI::Pointer.instance_methods.index(:address)
     end
   end
 else
+  MRUBY = false
   module NC
     def self.define_class w,n,sc
       cls = Class.new(sc)
@@ -172,6 +174,7 @@ module GObjectIntrospection
   self::Lib.attach_function :g_callable_info_may_return_null, [:pointer], :bool
   self::Lib.attach_function :g_callable_info_get_n_args, [:pointer], :int
   self::Lib.attach_function :g_callable_info_get_arg, [:pointer, :int], :pointer
+  self::Lib.attach_function :g_callable_info_skip_return, [:pointer], :bool
 
   # IArgInfo
   self::Lib.enum :IDirection, [
@@ -410,7 +413,7 @@ module GObjectIntrospection
     end
 
     def initialize ptr
-      @struct = self.class::Struct.new(ptr.addr)
+      @struct = self.class::Struct.new(ptr)
     end
 
     def message
@@ -732,6 +735,10 @@ module GObjectIntrospection
       end
       a
     end
+    
+    def skip_return?
+      Lib.g_callable_info_skip_return @gobj
+    end    
   end
 end
 
@@ -1332,10 +1339,9 @@ module GObjectIntrospection
 
     def require namespace, version=nil, flags=0
       errpp = FFI::MemoryPointer.new(:pointer)
-
+      errpp.write_pointer(FFI::Pointer::NULL)
       tl=GObjectIntrospection::Lib.g_irepository_require @gobj, namespace, version, flags, errpp
 
-    #  raise GError.new(errpp).message.to_s unless errpp.read_pointer == FFI::Pointer::NULL
       return tl
     end
     
