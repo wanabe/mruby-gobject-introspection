@@ -77,6 +77,12 @@ else
           return ptr
         end
       end
+      
+      def read_array_of_string len
+        read_array_of_pointer(len).map do |ptr|
+          ptr.read_string
+        end
+      end
     end
   end
 end
@@ -841,7 +847,7 @@ module GObjectIntrospection
         if FFI::Pointer.instance_methods.index(:addr)
           # MRUBY
         
-          if [:int64, :uint64].index(type)
+          if [:uint64].index(type)
             # 64 bit
           
             low = FFI::TYPES[type].refer(val).low
@@ -854,7 +860,7 @@ module GObjectIntrospection
         else
           # CRUBY
           
-          if [:int64, :uint64].index(type)
+          if [:uint64].index(type)
             # 64 bit
             return [val.address].pack("q").unpack("q").first
           end      
