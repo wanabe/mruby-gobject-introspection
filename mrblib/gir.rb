@@ -11,7 +11,14 @@ if !FFI::Pointer.instance_methods.index(:address)
       NULL = self.new
       
       def address
-        CFunc::UInt64.refer(addr).value
+          lh = Class.new(FFI::Union)
+          lh.layout(:high,:uint32,:low,:uint32)
+        
+          val = lh.new(addr)
+          low  = val[:low]
+          high = val[:high]
+          
+          return((high << 32) | low)
       end
       
       def to_out bool
@@ -96,6 +103,10 @@ module GObject
   end
 end
 
+class GSList < FFI::Struct
+  layout :data, :pointer,
+         :next, :pointer
+end
 
 module GObjectIntrospection
   module Lib
@@ -124,6 +135,8 @@ module GObjectIntrospection
     [:pointer, :string], :pointer
   self::Lib.attach_function :g_irepository_get_shared_library,
     [:pointer, :string], :string
+  self::Lib.attach_function :g_irepository_get_search_path,
+    [:pointer], :pointer    
   self::Lib.attach_function :g_irepository_get_c_prefix,
     [:pointer, :string], :string
   self::Lib.attach_function :g_irepository_get_version,
@@ -350,12 +363,31 @@ module GObjectIntrospection
   self::Lib.attach_function :g_interface_info_get_constant, [:pointer, :int], :pointer
   self::Lib.attach_function :g_interface_info_get_iface_struct, [:pointer], :pointer
 
-  # We only define one named member of :pointer
-  # as mruby FFI::Union simply wraps FFI::Struct
+
   class GIArgument < FFI::Union
     signed_size_t = "int#{FFI.type_size(:size_t) * 8}".to_sym
 
-    layout :value, :pointer
+    layout :v_boolean, :int,
+        :v_int8, :int8,
+        :v_uint8, :uint8,
+        :v_int16, :int16,
+        :v_uint16, :uint16,
+        :v_int32, :int32,
+        :v_uint32, :uint32,
+        :v_int64, :int64,
+        :v_uint64, :uint64,
+        :v_float, :float,
+        :v_double, :double,
+        :v_short, :short,
+        :v_ushort, :ushort,
+        :v_int, :int,
+        :v_uint, :uint,
+        :v_long, :long,
+        :v_ulong, :ulong,
+        :v_ssize, signed_size_t,
+        :v_size, :size_t,
+        :v_string, :string,
+        :v_pointer, :pointer
   end
 
   # IConstInfo
@@ -823,65 +855,38 @@ module GObjectIntrospection
     }
 
     def value_union
-      val = GIArgument.new
+      val = GIArgument.new FFI::MemoryPointer.new(:pointer)
       
       GObjectIntrospection::Lib.g_constant_info_get_value @gobj, val.pointer
       return val
     end
 
     def value
+      tag = constant_type.tag
       
-      type = constant_type.get_ffi_type
-      val = value_union[:value]#TYPE_TAG_TO_UNION_MEMBER[tag]]
+      unless tag == :guint64
+        val = value_union[TYPE_TAG_TO_UNION_MEMBER[tag]]
       
-      return nil if val.is_null?
-      
-      # mruby: got a CFunc::Pointer
-      if val and !val.is_a?(FFI::Pointer)
-        val = FFI::Pointer.refer(val.addr)
-      end
-      
-      
+        return nil if val.is_a?(FFI::Pointer) and val.is_null?
 
-      if [:uint64,:double,:int,:int32,:int64,:uint32].index type
-        if FFI::Pointer.instance_methods.index(:addr)
-          # MRUBY
+        return val
+      else
+        cls = Class.new(FFI::Struct)
+        cls.layout :value, :pointer
+        val = cls.new(FFI::MemoryPointer.new(:pointer))      
+        GObjectIntrospection::Lib.g_constant_info_get_value @gobj, val.pointer 
         
-          if [:uint64].index(type)
-            # 64 bit
-          
-            low = FFI::TYPES[type].refer(val).low
-            high = FFI::TYPES[type].refer(val).high
-            return((high << 32) | low)
-          end
-          
-          # <= 32 bit or double
-          return FFI::Pointer.refer(val.addr).send("read_#{type}")
-        else
-          # CRUBY
-          
-          if [:uint64].index(type)
-            # 64 bit
-            return [val.address].pack("q").unpack("q").first
-          end      
+        if MRUBY
+          lh = Class.new(FFI::Union)
+          lh.layout(:high,:uint32,:low,:uint32)
         
-          if [:int,:int32,:uint,:uint32].index type
-            # <= 32 bit
-            return val.address
-          end
-      
-          # double
-      
-          q = FFI::MemoryPointer.new(type)
-          q.write_ulong val.address
+          val = lh.new(val[:value].addr)
+          low  = val[:low]
+          high = val[:high]
           
-          return q.send("read_#{type}")
+          return((high << 32) | low)
         end
       end
-      
-      # string
-      return val.send("read_#{type}")
-     
     end
 
     def constant_type
@@ -1365,6 +1370,10 @@ module GObjectIntrospection
 
     def n_infos namespace
       GObjectIntrospection::Lib.g_irepository_get_n_infos(@gobj, namespace)
+    end
+    
+    def get_search_path
+      GSList.new(GObjectIntrospection::Lib.g_irepository_get_search_path(@gobj))
     end
 
     def info namespace, index
