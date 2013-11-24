@@ -1,4 +1,4 @@
-if !FFI::Pointer.instance_methods.index(:address)
+if FFI::Pointer.instance_methods.index(:addr)
   MRUBY = true
   module FFI
     module Library
@@ -8,19 +8,6 @@ if !FFI::Pointer.instance_methods.index(:address)
     end
   
     class Pointer
-      NULL = self.new
-      
-      def address
-          lh = Class.new(FFI::Union)
-          lh.layout(:high,:uint32,:low,:uint32)
-        
-          val = lh.new(addr)
-          low  = val[:low]
-          high = val[:high]
-          
-          return((high << 32) | low)
-      end
-      
       def to_out bool
         addr
       end
