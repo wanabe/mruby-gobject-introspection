@@ -870,13 +870,15 @@ module GObjectIntrospection
         return nil if val.is_a?(FFI::Pointer) and val.is_null?
 
         return val
-      else
-        cls = Class.new(FFI::Struct)
-        cls.layout :value, :pointer
-        val = cls.new(FFI::MemoryPointer.new(:pointer))      
-        GObjectIntrospection::Lib.g_constant_info_get_value @gobj, val.pointer 
-        
+      else 
         if MRUBY
+          cls = Class.new(FFI::Struct)
+          cls.layout :value, :pointer
+          
+          val = cls.new(FFI::MemoryPointer.new(:pointer))      
+          
+          GObjectIntrospection::Lib.g_constant_info_get_value @gobj, val.pointer
+                
           lh = Class.new(FFI::Union)
           lh.layout(:high,:uint32,:low,:uint32)
         
@@ -885,6 +887,15 @@ module GObjectIntrospection
           high = val[:high]
           
           return((high << 32) | low)
+        
+        else
+          cls = Class.new(FFI::Struct)
+          cls.layout :value, :uint64
+          
+          val = cls.new()      
+          
+          GObjectIntrospection::Lib.g_constant_info_get_value @gobj, val.pointer
+          return [val[:value]].pack("Q").unpack("q")[0]
         end
       end
     end
