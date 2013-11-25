@@ -1385,10 +1385,10 @@ module GObjectIntrospection
       (n=n_infos(namespace)-1)
       
       for idx in (0..(n))
-    	a << info(namespace, idx)
+    	  a << info(namespace, idx)
       end
       
-      a
+      return a
     end
 
     def find_by_name namespace, name
