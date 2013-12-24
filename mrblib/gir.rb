@@ -289,6 +289,9 @@ module GObjectIntrospection
   self::Lib.attach_function :g_field_info_get_offset, [:pointer], :int
   self::Lib.attach_function :g_field_info_get_type, [:pointer], :pointer
 
+  # ISignalInfo
+  self::Lib.attach_function :g_signal_info_true_stops_emit, [:pointer], :bool
+
   # IUnionInfo
   self::Lib.attach_function :g_union_info_get_n_fields, [:pointer], :int
   self::Lib.attach_function :g_union_info_get_field, [:pointer, :int], :pointer
@@ -1044,6 +1047,9 @@ module GObjectIntrospection
   # Represents a signal.
   # Not implemented yet.
   class ISignalInfo < ICallableInfo
+    def true_stops_emit
+      return GObjectIntrospection::Lib.g_signal_info_true_stops_emit @gobj
+    end
   end
 end
 
