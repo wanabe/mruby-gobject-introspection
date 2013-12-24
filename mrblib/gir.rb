@@ -93,6 +93,18 @@ end
 class GSList < FFI::Struct
   layout :data, :pointer,
          :next, :pointer
+    
+  def foreach &b
+    b.call self[:data]
+    
+    ptr = self[:next]
+    
+    while !ptr.is_null?
+      ptr = GSList.new(ptr)
+      b.call ptr[:data]
+      ptr = ptr[:next]
+    end
+  end       
 end
 
 module GObjectIntrospection
@@ -1195,7 +1207,7 @@ module GObjectIntrospection
        h=@method_map = {}
        get_methods.map {|mthd| [mthd.name, mthd] }.each do |k,v|
          h[k] = v
-         GObjectIntrospection::Lib.g_base_info_ref(v.ffi_ptr)
+         GObjectIntrospection::Lib.g_base_info_ref(v.to_ptr)
        end
        #p h
      end
@@ -1463,6 +1475,7 @@ module GObjectIntrospection
     :gint32=>:int32,
     :gdouble=>:double,
     :gfloat=>:float,
+    :gchararray=>:string,
     :gpointer=>:pointer,
     :filename=>:string,
     :gunichar=>:uint,
@@ -1488,10 +1501,10 @@ module GObjectIntrospection
     end
   end
   
-  class IPropertyInfo
+  class ITypeInfo
     def object?
-      if property_type.tag == :interface
-        if property_type.flattened_tag == :object
+      if tag == :interface
+        if flattened_tag == :object
           true
         end
       end    
@@ -1499,11 +1512,24 @@ module GObjectIntrospection
     
     def get_object()
       raise "" unless object?
-      return property_type.interface    
+      return interface    
     end
   
+    def struct?
+      if tag == :interface
+        if flattened_tag == :struct
+          true
+        end
+      end    
+    end
+    
+    def get_struct()
+      raise "" unless struct?
+      return interface    
+    end  
+  
     def get_type_name
-      if (ft=property_type.get_ffi_type) == :string
+      if (ft=get_ffi_type) == :string
         return "gchararray"
       end
       
