@@ -34,7 +34,7 @@ else
     def self.define_module w,n
       mod = nil
       w.class_eval do
-        const_set n,mod=Module.new
+        const_set n,mod=Module.new unless begin mod = const_defined?(n) ? const_get(n) : nil rescue nil end
       end
       mod
     end
@@ -53,6 +53,7 @@ else
           next :pointer if a.is_a?(Class) and a.ancestors.index FFI::Struct
           next a
         end
+      
         super rt,args,&b
       end
     end
@@ -514,7 +515,8 @@ module GObjectIntrospection
 
     def safe_namespace
       n=namespace
-      return n[0] = n[0].upcase
+      n[0] = n[0].upcase
+      return n
     end
 
     def container
