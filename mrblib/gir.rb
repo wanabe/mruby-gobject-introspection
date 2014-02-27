@@ -1,5 +1,58 @@
-if FFI::Pointer.instance_methods.index(:addr)
+module Boolean; end
+
+class TrueClass; include Boolean; end
+class FalseClass; include Boolean; end
+
+# MRuby keeps moving stuff around ...
+# ::Object#to_a not garanteed to exist
+unless ::Object.instance_methods.index(:to_a)
+  # provide ::Object#to_a
+  class ::Object
+    def to_a
+      [].push(self)
+    end
+  end
+end
+
+# If no mrbgem to provide Hash#each_pair
+# we implement it
+unless Hash.instance_methods.index(:each_pair)
+  class Hash
+    def each_pair &b
+      keys.each do |k|
+        b.call k,self[k]
+      end
+    end
+  end
+end
+
+module FFI
+  class Pointer
+    def ffi_value
+      self
+    end
+  end
+  
+  class Struct
+    def ffi_value
+      self.pointer
+    end
+  end
+  
+  class Union
+    def ffi_value
+      self.pointer
+    end  
+  end
+end
+
+if Object.const_defined?(:RUBY_ENGINE)
+  MRUBY = false
+else
   MRUBY = true
+end
+
+if FFI::Pointer.instance_methods.index(:addr)
   module FFI
     module Library
       def find_enum key
@@ -20,7 +73,6 @@ if FFI::Pointer.instance_methods.index(:addr)
     end
   end
 else
-  MRUBY = false
   module NC
     def self.define_class w,n,sc
       cls = Class.new(sc)
@@ -53,7 +105,11 @@ else
           next :pointer if a.is_a?(Class) and a.ancestors.index FFI::Struct
           next a
         end
-      
+
+        if rt.is_a? Class and rt.ancestors.index FFI::Struct
+          rt = :pointer
+        end      
+
         super rt,args,&b
       end
     end
@@ -1425,7 +1481,7 @@ module GObjectIntrospection
     def dependencies namespace
       strv_p = GObjectIntrospection::Lib.g_irepository_get_dependencies(@gobj, namespace)
       strv = GLib::Strv.new strv_p
-
+p strv
       return strv.to_a
     end
 
