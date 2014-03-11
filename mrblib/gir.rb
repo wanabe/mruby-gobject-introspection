@@ -134,6 +134,16 @@ else
           ptr.read_string
         end
       end
+      
+      def write_array_of_string argv
+        write_array_of_pointer(argv.map do |str|
+          if str == nil
+            nil
+          else  
+            pt=FFI::MemoryPointer.from_string(str)
+          end
+        end)
+      end      
     end
   end
 end
