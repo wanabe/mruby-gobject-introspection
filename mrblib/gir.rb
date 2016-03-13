@@ -600,6 +600,7 @@ module GObjectIntrospection
     end
 
     def == other
+      return false unless other.respond_to?(:to_ptr)
       GObjectIntrospection::Lib.g_base_info_equal @gobj, other.to_ptr
     end
   end
